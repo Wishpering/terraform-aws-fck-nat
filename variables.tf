@@ -129,6 +129,17 @@ variable "additional_security_group_ids" {
   default     = []
 }
 
+variable "additional_user_data" {
+  description = "A list of additional user data scripts that will be added for the NAT instance"
+  type        = set(object({
+    name           = string
+    filename       = optional(string)
+    content_type   = optional(string)
+    content        = string
+  }))
+  default     = []
+}
+
 variable "use_ssh" {
   description = "Whether or not to enable SSH access to the NAT instance"
   type        = bool

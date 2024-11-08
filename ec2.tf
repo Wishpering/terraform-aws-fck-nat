@@ -31,6 +31,35 @@ data "aws_arn" "ssm_param" {
   arn = var.cloudwatch_agent_configuration_param_arn
 }
 
+data "cloudinit_config" "main" {
+  gzip          = false
+  base64_encode = true
+
+  part {
+    content_type = "text/x-shellscript"
+
+    content = templatefile(
+      "${path.module}/templates/user_data.sh", 
+      {
+        TERRAFORM_ENI_ID                 = aws_network_interface.main.id
+        TERRAFORM_EIP_ID                 = length(var.eip_allocation_ids) != 0 ? var.eip_allocation_ids[0] : ""
+        TERRAFORM_CWAGENT_ENABLED        = var.use_cloudwatch_agent ? "true" : ""
+        TERRAFORM_CWAGENT_CFG_PARAM_NAME = local.cwagent_param_name != null ? local.cwagent_param_name : ""
+      }
+    )
+  }
+
+  dynamic "part" {
+    for_each = length(var.additional_user_data) > 0 ? { for ud in var.additional_user_data : ud.name => ud } : {}
+
+    content {
+      filename = part.value.filename
+      content_type = part.value.content_type
+      content = part.value.content
+    }
+  }
+}
+
 resource "aws_launch_template" "main" {
   #checkov:skip=CKV_AWS_88:NAT instances must have a public IP.
   name          = var.name
@@ -78,12 +107,7 @@ resource "aws_launch_template" "main" {
     }
   }
 
-  user_data = base64encode(templatefile("${path.module}/templates/user_data.sh", {
-    TERRAFORM_ENI_ID                 = aws_network_interface.main.id
-    TERRAFORM_EIP_ID                 = length(var.eip_allocation_ids) != 0 ? var.eip_allocation_ids[0] : ""
-    TERRAFORM_CWAGENT_ENABLED        = var.use_cloudwatch_agent ? "true" : ""
-    TERRAFORM_CWAGENT_CFG_PARAM_NAME = local.cwagent_param_name != null ? local.cwagent_param_name : ""
-  }))
+  user_data = data.cloudinit_config.main.rendered
 
   # Enforce IMDSv2
   metadata_options {
