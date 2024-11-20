@@ -2,7 +2,7 @@ data "aws_ami" "main" {
   count = var.ami_id != null ? 0 : 1
 
   most_recent = true
-  owners      = ["568608671756"]
+  owners      = ["503918853670"]
 
   filter {
     name   = "name"
